@@ -7,7 +7,7 @@ title: M5Stack Grove - Qwiic 変換アダプタ
 
 ![M5Stack Grove - Qwiic 変換アダプタ](img/image1.jpg)
 
-M5Stack の Grove ポート（ポートA、I²C）に、SparkFun の Qwiic 規格の I²C 機器をつなぐための変換基板です。
+M5Stack の Grove ポート（M5Stack の表記では HY2.0-4P の PORT.A、I²C）に、SparkFun の Qwiic 規格の I²C 機器をつなぐための変換基板です。
 
 - Grove 側の 5V から、3.3V レギュレータ（XC6206P332MR）で Qwiic 用の 3.3V を作ります。
 - SDA / SCL は、Grove と Qwiic のあいだをそのままつないでいます（レベル変換はありません）。
@@ -42,7 +42,7 @@ M5Stack の Grove ポート（ポートA、I²C）に、SparkFun の Qwiic 規�
 2. Qwiic 機器は、Qwiic ケーブルで「Qwiic」と書かれたコネクタにつなぎます。
 3. ピンソケット付きの機器は、CN1 にピンヘッダをはんだ付けし、ジャンパワイヤでつなぎます（上の写真）。CN1 には 3.3V と 5V の両方が出ているので、機器に合わせて選べます。
 
-M5Stack 側のプログラムは、ポートA の I²C として扱います。この基板にはマイコンも I²C アドレスもないので、ライブラリや設定は不要です。
+M5Stack 側のプログラムは、PORT.A の I²C として扱います。この基板にはマイコンも I²C アドレスもないので、ライブラリや設定は不要です。
 
 ## ピン配置
 
@@ -50,7 +50,7 @@ M5Stack 側のプログラムは、ポートA の I²C として扱います。�
 
 ![基板の裏面。CN1 のピン名がシルク印刷されています](img/image3.jpg)
 
-| ピン | Grove（M5Stack） | Qwiic | CN1（ピンヘッダ） |
+| ピン | Grove（HY2.0-4P） | Qwiic | CN1（ピンヘッダ） |
 |---|---|---|---|
 | 1 | GND | GND | SCL（角ランド） |
 | 2 | 5V | 3V3 | SDA |
