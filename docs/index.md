@@ -1,13 +1,15 @@
 ---
 layout: default
-title: M5Stack Grove - Qwiic 変換アダプタ
+title: M5Stack用 Grove - Qwiic 変換アダプタ
 ---
 
-# M5Stack Grove - Qwiic 変換アダプタ
+# M5Stack用 Grove - Qwiic 変換アダプタ
 
-![M5Stack Grove - Qwiic 変換アダプタ](img/image1.jpg)
+![M5Stack用 Grove - Qwiic 変換アダプタ](img/image1.jpg)
 
 M5Stack の Grove ポート（M5Stack の表記では HY2.0-4P の PORT.A、I²C）に、SparkFun の Qwiic 規格の I²C 機器をつなぐための変換基板です。
+
+※本製品は M5Stack の公式製品ではありません。
 
 - Grove 側の 5V から、3.3V レギュレータ（XC6206P332MR）で Qwiic 用の 3.3V を作ります。
 - SDA / SCL は、Grove と Qwiic のあいだをそのままつないでいます（レベル変換はありません）。

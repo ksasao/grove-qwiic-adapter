@@ -1,4 +1,4 @@
-title: M5Stack Grove - Qwiic 変換アダプタ
+title: M5Stack用 Grove - Qwiic 変換アダプタ
 description: M5Stack の Grove（HY2.0-4P）と Qwiic（SparkFun）の I²C 機器をつなぐ変換基板
 lang: ja
 theme: jekyll-theme-minimal
