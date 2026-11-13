@@ -44,7 +44,7 @@ arduino-cli upload -p COM4 --fqbn esp32:esp32:m5stack_atom:UploadSpeed=115200 to
 
 1. アダプタに Grove ケーブル（Atom 側）と Qwiic ケーブル（Buzzer 側）を挿し、CN1 にポゴピンクリップを当てます。
 2. Atom Lite のボタンを押します（シリアルで `t` を送っても同じです）。
-3. 約 2 秒で判定します。LED が緑になり、Buzzer が 2 回鳴れば合格、赤なら不合格です。
+3. 約 3 秒で判定します。挿した直後の 1 回目は捨てて（Modulino Buzzer の起動待ち）、続けて 3 回調べ、全て合格なら合格です。LED が緑になり、Buzzer が 2 回鳴れば合格、赤なら不合格です。
 4. 外観（コネクタのはんだ・浮き）と、ピンヘッダ（1×5）が袋に入っているかを、目で確かめます。
 
 | 項目 | 合格の基準 |
@@ -58,8 +58,10 @@ arduino-cli upload -p COM4 --fqbn esp32:esp32:m5stack_atom:UploadSpeed=115200 to
 シリアル（115200bps）には、1 台ごとに次の 1 行を出します。
 
 ```
-RESULT,11,PASS,v5=4994,v33=3365,qwiic=ok,cn1=ok,whoami=0xD3,others=-,ng=-
+RESULT,11,PASS,v5=4994,v33=3365,qwiic=ok,cn1=ok,whoami=0xD3,others=-,checks=3,ng=-
 ```
+
+電圧は、3 回のうち基準から一番遠い値です。不合格のときの `ng=` には、何回目に何が不合格だったかを `qwiic(1) v33(3)` のように出します。
 
 ケーブルやポゴピンが外れていると、それぞれ `qwiic=ng`、`cn1=ng`、`ng=v5`（5V の分圧の線が外れると約 0.3V）になります。不合格のときは、まずケーブルとポゴピンを当て直して、もう一度押してください。
 
