@@ -1,0 +1,4 @@
+
+# 出荷前検査の記録 (tools/adapter-test/log.py)
+inspection/
+__pycache__/

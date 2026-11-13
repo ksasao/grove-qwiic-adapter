@@ -13,10 +13,11 @@
  *     3V3 -> 10kΩ -> G25 -> 10kΩ -> GND   (1/2 に分圧して測る)
  *
  * 使い方
- *   アダプタをつなぎ、Atom のボタン (G39) を押すか、シリアルで "t" を送ると、約 2 秒で検査します。
+ *   アダプタをつなぎ、Atom のボタン (G39) を押すか、シリアルで "t" を送ると、約 3 秒で検査します。
+ *   挿した直後の 1 回目は捨てて (Modulino Buzzer の起動待ち)、続けて 3 回調べ、全て合格なら合格。
  *   LED: 青 = 検査中、緑 = 合格、赤 = 不合格、白 (暗い) = 待機
  *   シリアル (115200bps) に、結果を 1 行で出します:
- *     RESULT,<連番>,<PASS|FAIL>,v5=<mV>,v33=<mV>,qwiic=<ok|ng>,cn1=<ok|ng>,whoami=0x..,others=<..>,ng=<..>
+ *     RESULT,<連番>,<PASS|FAIL>,v5=<mV>,v33=<mV>,qwiic=<ok|ng>,cn1=<ok|ng>,whoami=0x..,others=<..>,checks=3,ng=<..>
  */
 #include <Arduino.h>
 #include <Wire.h>
@@ -38,6 +39,13 @@ static const uint8_t STHS_WHOAMI     = 0xD3;
 static const int V5_MIN  = 4600, V5_MAX  = 5300;
 static const int V33_MIN = 3150, V33_MAX = 3450;
 static const float DIVIDER = 2.0f;      // 10kΩ + 10kΩ
+
+// 1 回分の検査の結果 (Arduino の関数の宣言の自動生成より前に、型を定義しておく)
+struct Check {
+    bool qwiic, cn1;
+    int  who, v5, v33;
+    String ng, others;
+};
 
 static CRGB led[1];
 static uint32_t g_count = 0;
@@ -83,43 +91,74 @@ static bool beep(uint32_t freq, uint32_t ms)
     return Wire.endTransmission() == 0;
 }
 
+// 1 回分の検査。結果は Check に入れる (LED と RESULT の行は、runTest でまとめて出す)
+static Check checkOnce(bool sound)
+{
+    Check c;
+    // I2C の経路 (Qwiic と CN1)
+    c.qwiic = i2cFound(ADDR_BUZZER);
+    c.cn1   = i2cFound(ADDR_STHS);
+    c.who   = c.cn1 ? readReg(ADDR_STHS, STHS_WHOAMI_REG) : -1;
+    if (!c.qwiic) c.ng += "qwiic ";
+    if (!c.cn1) c.ng += "cn1 ";
+    else if (c.who != STHS_WHOAMI) c.ng += "whoami ";
+    if (c.qwiic && sound) beep(2000, 150);   // 音でも確かめる (Qwiic 側の 3.3V で鳴る)
+
+    // ほかのアドレスに、何か見えないか (配線の間違いの確認)
+    for (uint8_t a = 0x03; a < 0x78; a++) {
+        if (a == ADDR_BUZZER || a == ADDR_STHS) continue;
+        if (i2cFound(a)) c.others += String("0x") + String(a, HEX) + " ";
+    }
+
+    // CN1 の電圧 (Buzzer が鳴っている間に、3V3 を測る)
+    delay(50);
+    c.v33 = measureMv(PIN_V33);
+    c.v5  = measureMv(PIN_V5);
+    if (c.v5 < V5_MIN || c.v5 > V5_MAX) c.ng += "v5 ";
+    if (c.v33 < V33_MIN || c.v33 > V33_MAX) c.ng += "v33 ";
+    c.ng.trim();
+    c.others.trim();
+    return c;
+}
+
+// 検査。挿した直後の 1 回目は、Modulino Buzzer (マイコン入り) の起動が間に合わず、
+// Qwiic 側が見つからないことがあるので、捨てる。そのあと CHECKS 回続けて調べ、全て合格なら合格。
+// RESULT の行の電圧は、CHECKS 回のうち、基準から一番遠い値
+static const int CHECKS = 3;
+
+static int worse(int a, int b, int lo, int hi)
+{
+    const int mid = (lo + hi) / 2;
+    return abs(a - mid) >= abs(b - mid) ? a : b;
+}
+
 static void runTest()
 {
     setLed(CRGB(0, 0, 60));
     g_count++;
     delay(300);                         // 挿した直後の電源が落ち着くまで
+    checkOnce(false);                   // 1 回目は捨てる (起動待ち)
+    delay(300);
 
-    String ng;
-    // I2C の経路 (Qwiic と CN1)
-    const bool qwiic = i2cFound(ADDR_BUZZER);
-    const bool cn1   = i2cFound(ADDR_STHS);
-    const int  who   = cn1 ? readReg(ADDR_STHS, STHS_WHOAMI_REG) : -1;
-    if (!qwiic) ng += "qwiic ";
-    if (!cn1) ng += "cn1 ";
-    else if (who != STHS_WHOAMI) ng += "whoami ";
-    if (qwiic) beep(2000, 150);          // 音でも確かめる (Qwiic 側の 3.3V で鳴る)
-
-    // ほかのアドレスに、何か見えないか (配線の間違いの確認)
-    String others;
-    for (uint8_t a = 0x03; a < 0x78; a++) {
-        if (a == ADDR_BUZZER || a == ADDR_STHS) continue;
-        if (i2cFound(a)) others += String("0x") + String(a, HEX) + " ";
+    Check sum = checkOnce(true);
+    String ng = sum.ng.length() ? sum.ng + "(1)" : String();
+    for (int i = 1; i < CHECKS; i++) {
+        delay(200);
+        const Check c = checkOnce(false);
+        sum.qwiic = sum.qwiic && c.qwiic;
+        sum.cn1   = sum.cn1 && c.cn1;
+        if (c.who != STHS_WHOAMI) sum.who = c.who;
+        sum.v5  = worse(sum.v5, c.v5, V5_MIN, V5_MAX);
+        sum.v33 = worse(sum.v33, c.v33, V33_MIN, V33_MAX);
+        if (c.others.length() && sum.others.indexOf(c.others) < 0) sum.others += " " + c.others;
+        if (c.ng.length()) ng += String(ng.length() ? " " : "") + c.ng + "(" + String(i + 1) + ")";
     }
-
-    // CN1 の電圧 (Buzzer が鳴っている間に、3V3 を測る)
-    delay(50);
-    const int v33 = measureMv(PIN_V33);
-    const int v5  = measureMv(PIN_V5);
-    if (v5 < V5_MIN || v5 > V5_MAX) ng += "v5 ";
-    if (v33 < V33_MIN || v33 > V33_MAX) ng += "v33 ";
-
-    ng.trim();
-    others.trim();
+    sum.others.trim();
     const bool pass = ng.length() == 0;
-    Serial.printf("RESULT,%lu,%s,v5=%d,v33=%d,qwiic=%s,cn1=%s,whoami=0x%02X,others=%s,ng=%s\n",
-                  (unsigned long)g_count, pass ? "PASS" : "FAIL", v5, v33, qwiic ? "ok" : "ng",
-                  cn1 ? "ok" : "ng", who < 0 ? 0 : who, others.length() ? others.c_str() : "-",
-                  pass ? "-" : ng.c_str());
+    Serial.printf("RESULT,%lu,%s,v5=%d,v33=%d,qwiic=%s,cn1=%s,whoami=0x%02X,others=%s,checks=%d,ng=%s\n",
+                  (unsigned long)g_count, pass ? "PASS" : "FAIL", sum.v5, sum.v33, sum.qwiic ? "ok" : "ng",
+                  sum.cn1 ? "ok" : "ng", sum.who < 0 ? 0 : sum.who,
+                  sum.others.length() ? sum.others.c_str() : "-", CHECKS, pass ? "-" : ng.c_str());
     setLed(pass ? CRGB(0, 80, 0) : CRGB(100, 0, 0));
     if (pass) {
         delay(200);
